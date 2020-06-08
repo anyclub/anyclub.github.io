@@ -370,7 +370,7 @@
   
   
   <div class="post-block">
-    <link itemprop="mainEntityOfPage" href="https://anyclub.github.io/2019/04/15/vue-source-1/">
+    <link itemprop="mainEntityOfPage" href="https://anyclub.github.io/2020/05/27/计算文字宽度/">
 
     <span hidden itemprop="author" itemscope="" itemtype="http://schema.org/Person">
       <meta itemprop="name" content="anyc">
@@ -390,7 +390,7 @@
           <h1 class="post-title" itemprop="name headline">
                 
                 
-                <a href="/2019/04/15/vue-source-1/" class="post-title-link" itemprop="https://anyclub.github.io/index.html">vue源码阅读笔记1</a>
+                <a href="/2020/05/27/计算文字宽度/" class="post-title-link" itemprop="https://anyclub.github.io/index.html">计算文字宽度</a>
               
             
           </h1>
@@ -415,7 +415,7 @@
                 
               
 
-              <time title="创建时间：2019-04-15 14:10:50" itemprop="dateCreated datePublished" datetime="2019-04-15T14:10:50+08:00">2019-04-15</time>
+              <time title="创建时间：2020-05-27 09:03:55" itemprop="dateCreated datePublished" datetime="2020-05-27T09:03:55+08:00">2020-05-27</time>
             
 
             
@@ -432,7 +432,7 @@
                 
                   <span class="post-meta-item-text">更新于</span>
                 
-                <time title="修改时间：2019-07-31 15:51:39" itemprop="dateModified" datetime="2019-07-31T15:51:39+08:00">2019-07-31</time>
+                <time title="修改时间：2020-06-08 11:03:53" itemprop="dateModified" datetime="2020-06-08T11:03:53+08:00">2020-06-08</time>
               
             
           </span>
@@ -466,16 +466,28 @@
 
       
         
-          <h1 id="vue源码阅读笔记1"><a href="#vue源码阅读笔记1" class="headerlink" title="vue源码阅读笔记1"></a>vue源码阅读笔记1</h1>
-          <!--noindex-->
           
-            <div class="post-button text-center">
-              <a class="btn" href="/2019/04/15/vue-source-1/#more" rel="contents">
-                阅读全文 &raquo;
-              </a>
-            </div>
-         
-          <!--/noindex-->
+            <p>我们经常会碰到类似这样的需求–当文字超出容器宽度,超出部分使用省略号显示,鼠标移入的时候使用tooltip提示.<br>超出部分使用省略号显示很简单,使用CSS即可,关键属性<code>text-overflow: ellipsis;</code>.</p>
+<p>当文字超出宽度时计算文字与容器宽度,决定是否启用TOOLTIP就稍稍麻烦一点,总结大致方案3种</p>
+<ol>
+<li>新建一个不可见容器,在容器内填充相同文字,然后读取容器宽度. 需要注意的是,此容器要求不可见但需要渲染,否则宽度读取会不正常.场景方案为设置Z轴为负值\opicty为0\    visibility为hidden等方案</li>
+</ol>
+<p>优点:兼容性好,JQ时代普遍采用的方案<br>此解决方案缺点:主要在于有多余的DOM节点,而我们知道DOM渲染开销是很”贵”的,大量使用时会明显影响性能.需要处理很多样式上的问题.</p>
+<ol start="2">
+<li>通过<a href="https://developer.mozilla.org/zh-CN/docs/Web/API/Range/Range" target="_blank" rel="noopener">Range</a>对象计算文字渲染宽度,通过<a href="https://developer.mozilla.org/zh-CN/docs/Web/API/Window/getComputedStyle" target="_blank" rel="noopener">getComputedStyle</a>获得CSS属性,进而获得文字渲染需要的宽度<br>大致代码如下:<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">const</span> range = <span class="built_in">document</span>.createRange();</span><br><span class="line">range.setStart(targetElement, <span class="number">0</span>);</span><br><span class="line">range.setEnd(targetElement, targetElement.childNodes.length);</span><br><span class="line"><span class="keyword">const</span> rangeWidth = range.getBoundingClientRect().width;</span><br><span class="line"><span class="keyword">const</span> padding = getComputedStyle(elem,<span class="literal">null</span>).getPropertyValue(<span class="string">"paddingLeft"</span>) + getComputedStyle(elem,<span class="literal">null</span>).getPropertyValue(<span class="string">"paddingRight"</span>)</span><br><span class="line"></span><br><span class="line"><span class="keyword">const</span> renderWidth = rangeWidth + padding</span><br><span class="line"></span><br><span class="line"><span class="comment">// TODO something</span></span><br></pre></td></tr></table></figure>
+</li>
+</ol>
+<p>优点: Range对象比渲染DOM开销更小,性能更好. 社区很多基础库均使用此方案(比如element判断单元格是否超出提示)<br>缺点: 兼容性差一点</p>
+<p>到此为止,本以为就差不多了,结果项目来了一个使用场景：<br>  业务里很多表单填报,<code>input</code>框可输入诸如公司名称、部门名称等长度变化特变广的输入框，也需要使用如上功能（超出宽度时显示省略号，鼠标移入则弹出TOOLTIP提示），初版直接使用<code>title</code>属性,但显示逻辑与样式均无法达到满意.使用上述<code>方案2</code>发现难以设置<code>range</code>对象(<code>input</code>的value属性读出来就变成了字符串,无法保留像子节点那样保留其样式信息)</p>
+<p>查询一番后找到了第三种方案</p>
+<ol start="3">
+<li>针对<code>input</code>一类标签,使用<code>clientWidth</code>与<code>scrollWidth</code>对比</li>
+</ol>
+<p><code>input</code>一类标签在渲染文本时,会讲超出部分渲染为横向滚动,并且<code>scrollWidth</code>能读到其渲染完毕所需的正常值</p>
+<p>核心代码就一句话:<br><figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">const</span> visible = <span class="keyword">this</span>.$input.clientWidth &lt; <span class="keyword">this</span>.$input.scrollWidth</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span>(visible)&#123;</span><br><span class="line">  <span class="comment">// TODO something</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>全文完</p>
+
+          
         
       
     </div>
